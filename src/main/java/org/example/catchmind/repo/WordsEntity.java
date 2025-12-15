@@ -10,7 +10,7 @@ import lombok.Setter;
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "WORD")
+@Table(name = "catchmind_word")
 public class WordsEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
