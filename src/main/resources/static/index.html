@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>캐치마인드 (Dev Edition)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f6f8fa; --box-bg: #ffffff; --border-color: #d0d7de; --header-bg: #24292f;
+            --text-primary: #24292f; --text-secondary: #57606a; --btn-green: #2da44e;
+            --btn-green-hover: #2c974b; --btn-gray: #f6f8fa; --btn-gray-text: #24292f;
+            --btn-danger: #cf222e; --link-blue: #0969da; --input-bg: #ffffff;
+            --chat-system-bg: #f6f8fa; --word-select-bg: #ddf4ff; --word-select-border: #54aeff;
+        }
+        body.dark-mode {
+            --bg-color: #0d1117; --box-bg: #161b22; --border-color: #30363d; --header-bg: #161b22;
+            --text-primary: #c9d1d9; --text-secondary: #8b949e; --btn-green: #238636;
+            --btn-green-hover: #2ea043; --btn-gray: #21262d; --btn-gray-text: #c9d1d9;
+            --btn-danger: #da3633; --link-blue: #58a6ff; --input-bg: #0d1117;
+            --chat-system-bg: #21262d; --word-select-bg: #0d1117; --word-select-border: #30363d;
+        }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--bg-color); color: var(--text-primary); margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; transition: background 0.3s; }
+        header { width: 100%; background: var(--header-bg); padding: 16px 20px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; box-sizing: border-box; }
+        header h1 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; color: #f0f6fc; }
+        .theme-toggle { background: none; border: 1px solid #30363d; color: #f0f6fc; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+        .container { width: 100%; max-width: 950px; padding: 0 20px; box-sizing: border-box; }
+        .box { background: var(--box-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
+        .box-header { background: var(--bg-color); border-bottom: 1px solid var(--border-color); padding: 16px; margin: -20px -20px 20px -20px; border-radius: 6px 6px 0 0; font-weight: 600; display: flex; justify-content: space-between; color: var(--text-primary); }
+        button { border-radius: 6px; border: 1px solid var(--border-color); padding: 5px 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background: var(--btn-green); color: white; border-color: rgba(27,31,35,0.15); }
+        .btn-danger { color: var(--btn-danger); background: var(--box-bg); }
+        .btn-default { background: var(--btn-gray); color: var(--btn-gray-text); }
+        input, select { background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 5px 12px; width: 100%; box-sizing: border-box; }
+        .hidden { display: none !important; }
+        .room-list { list-style: none; padding: 0; margin: 0; }
+        .room-item { padding: 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .game-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .game-layout { display: flex; gap: 20px; }
+        #canvas-container { border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; background: white; width: 600px; height: 500px; }
+        #canvas-container.my-turn { box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.3); border-color: var(--link-blue); }
+        #chat-container { flex: 1; border: 1px solid var(--border-color); border-radius: 6px; display: flex; flex-direction: column; background: var(--box-bg); height: 500px; }
+        #messages { flex: 1; overflow-y: auto; padding: 10px; font-size: 13px; color: var(--text-primary); }
+        .msg-item { padding: 6px 0; border-bottom: 1px solid var(--border-color); }
+        .msg-system { color: var(--text-secondary); background: var(--chat-system-bg); padding: 8px; border-radius: 6px; text-align: center; margin: 5px 0; font-weight: 500; }
+        .msg-sender { font-weight: 700; color: var(--text-primary); }
+        #word-select-area { background: var(--word-select-bg); border: 1px solid var(--word-select-border); border-radius: 6px; padding: 15px; margin-bottom: 15px; text-align: center; display: none; }
+        .word-btn { margin: 0 5px; background: var(--box-bg); color: var(--text-primary); }
+        .badge { padding: 2px 10px; font-size: 12px; font-weight: 600; border-radius: 2em; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-secondary); }
+        .badge-answer { background: var(--btn-green); color: white; display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>CatchMind <span style="font-weight: normal; opacity: 0.7; margin-left: 5px;">/ Game</span></h1>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌑 Dark Mode</button>
+</header>
+
+<div id="login-screen">
+    <div class="box" style="max-width: 350px; margin: 0 auto;">
+        <label style="display:block; font-weight:600; margin-bottom: 8px;">닉네임</label>
+        <input type="text" id="nicknameInput" placeholder="닉네임 입력" onkeypress="if(event.key==='Enter') goToLobby()">
+        <button class="btn-primary" onclick="goToLobby()" style="width:100%; margin-top:20px;">입장</button>
+        <div style="text-align: center; margin-top: 15px; font-size: 13px;">
+            <a href="/words/add" style="color: var(--link-blue); text-decoration: none;">📖 단어장 관리</a>
+        </div>
+    </div>
+</div>
+
+<div id="lobby-screen" class="container hidden">
+    <div class="box">
+        <div class="box-header"><span>대기실</span><span id="welcome-msg" style="font-weight:normal;"></span></div>
+        <div style="display:flex; gap:10px; margin-bottom: 20px; background:var(--bg-color); padding:10px; border-radius:6px;">
+            <input type="text" id="roomNameInput" placeholder="방 제목" style="flex:2;">
+            <select id="roundsInput" style="flex:1;">
+                <option value="3">3 라운드</option>
+                <option value="5" selected>5 라운드</option>
+                <option value="10">10 라운드</option>
+                <option value="15">15 라운드</option>
+                <option value="20">20 라운드</option>
+            </select>
+            <button class="btn-primary" onclick="createRoom()">생성</button>
+            <button class="btn-default" onclick="loadRooms()">새로고침</button>
+            <button class="btn-danger" onclick="location.reload()" style="margin-left:auto;">로그아웃</button>
+        </div>
+        <ul id="room-list" class="room-list" style="border:1px solid var(--border-color); border-radius:6px;"></ul>
+    </div>
+</div>
+
+<div id="game-screen" class="container hidden">
+    <div class="game-meta">
+        <div>
+            <h2 id="current-room-name" style="margin:0; font-size: 20px;">
+                <span style="color:var(--text-secondary); font-weight:normal;">CatchMind / </span>
+                <span id="room-title-text" style="color:var(--link-blue);">Title</span>
+            </h2>
+            <span id="game-status" class="badge">대기 중</span>
+        </div>
+        <div id="secret-area" class="badge badge-answer">🔒 정답: <span id="secret-text">???</span></div>
+        <div>
+            <button id="startBtn" class="btn-primary" onclick="startGame()">게임 시작</button>
+            <button class="btn-danger" onclick="exitRoom()">나가기</button>
+        </div>
+    </div>
+
+    <div id="word-select-area">
+        <h4>📢 주제어를 선택하세요!</h4>
+        <div id="candidate-buttons" style="margin-bottom: 10px;"></div>
+        <div style="display:flex; justify-content:center; gap:5px;">
+            <input type="text" id="manualWordInput" placeholder="직접 입력" style="width:180px;">
+            <button class="btn-default" onclick="sendManualWord()">결정</button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 10px; padding: 10px; background: var(--bg-color); border-radius: 6px; display:flex; gap:10px; align-items: center;">
+        <span>🎨 도구:</span>
+        <input type="color" id="colorPicker" value="#000000" style="width:40px; height:28px; padding:0; border:none; cursor:pointer;">
+        <button class="btn-default" onclick="clearCanvas()">지우기</button>
+    </div>
+
+    <div class="game-layout">
+        <div id="canvas-container"><canvas id="gameCanvas" width="600" height="500"></canvas></div>
+        <div id="chat-container">
+            <div id="messages"></div>
+            <div style="padding:10px; background:var(--bg-color); display:flex; gap:8px;">
+                <input type="text" id="chatInput" placeholder="정답 입력..." onkeypress="if(event.key==='Enter') sendChat()">
+                <button id="sendBtn" class="btn-primary" onclick="sendChat()">전송</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="ranking-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:999;">
+    <div class="box" style="width:400px; text-align:center;">
+        <h2 style="color:var(--text-primary);">🏆 게임 종료! 🏆</h2>
+        <ul id="ranking-list" style="list-style:none; padding:0; text-align:left; color:var(--text-primary);"></ul>
+        <button class="btn-primary" onclick="closeRanking()">대기실로 나가기</button>
+    </div>
+</div>
+
+<script>
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+    let stompClient = null;
+    let myNickname = "";
+    const myUniqueId = generateUUID();
+    let currentRoomId = "";
+    let isMyTurn = false;
+    let isGameEnded = false;
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        document.getElementById('themeBtn').innerText = isDark ? "☀️ Light Mode" : "🌑 Dark Mode";
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('theme') === 'dark') toggleTheme();
+
+    function goToLobby() {
+        const input = document.getElementById('nicknameInput').value;
+        if (!input.trim()) return alert("닉네임 입력!");
+        myNickname = input;
+        document.getElementById('welcome-msg').innerText = `${myNickname}님`;
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('lobby-screen').classList.remove('hidden');
+        loadRooms();
+    }
+
+    function loadRooms() {
+        fetch('/api/rooms').then(res => res.json()).then(rooms => {
+            const list = document.getElementById('room-list');
+            list.innerHTML = rooms.length ? '' : '<li style="padding:20px; text-align:center;">개설된 방이 없습니다.</li>';
+            rooms.forEach(room => {
+                const li = document.createElement('li');
+                li.className = 'room-item';
+                li.innerHTML = `<span>${room.roomName}</span> <button class="btn-default" onclick="joinRoom('${room.roomId}', '${room.roomName}')">참가</button>`;
+                list.appendChild(li);
+            });
+        });
+    }
+
+    function createRoom() {
+        const name = document.getElementById('roomNameInput').value;
+        const rounds = document.getElementById('roundsInput').value;
+        if(!name) return alert("방 제목 입력!");
+        fetch(`/api/rooms?name=${encodeURIComponent(name)}&rounds=${rounds}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(room => joinRoom(room.roomId, room.roomName));
+    }
+
+    function joinRoom(roomId, roomName) {
+        // 1. 입장 전 서버에 방 상태 확인 (HTTP)
+        fetch(`/api/rooms/${roomId}`)
+            .then(res => {
+                if (!res.ok) throw new Error("방을 찾을 수 없습니다.");
+                return res.json();
+            })
+            .then(room => {
+                // [체크] 게임이 이미 시작되었는지 확인
+                if (room.playing) {
+                    alert("⛔ 이미 게임이 진행 중인 방입니다!");
+                    return; // 입장 중단
+                }
+
+                // 2. 상태가 정상이면 입장 프로세스 진행
+                enterRoomProcess(roomId, roomName);
+            })
+            .catch(err => {
+                alert("입장 실패: " + err.message);
+                loadRooms(); // 목록 새로고침
+            });
+    }
+    function enterRoomProcess(roomId, roomName) {
+        currentRoomId = roomId;
+        isGameEnded = false;
+
+        const titleEl = document.getElementById('room-title-text');
+        if (titleEl) titleEl.innerText = roomName;
+
+        document.getElementById('lobby-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect({}, function (frame) {
+            // 입장 메시지 전송
+            stompClient.send(`/app/${roomId}/join`, {}, JSON.stringify({ type: 'JOIN', sender: myNickname, senderId: myUniqueId }));
+
+            // 그림 구독
+            stompClient.subscribe(`/topic/${roomId}/draw`, function (msg) {
+                if(isGameEnded) return;
+                const body = JSON.parse(msg.body);
+                if (body.type === 'DRAW' && body.senderId !== myUniqueId) {
+                    drawLine(body.prevX, body.prevY, body.x, body.y, body.color, false);
+                } else if (body.type === 'CLEAR') {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            });
+
+            // 채팅/게임로직 구독
+            stompClient.subscribe(`/topic/${roomId}/chat`, function (msg) {
+                const body = JSON.parse(msg.body);
+
+                // [신규] 강퇴 메시지 처리 (2차 방어선)
+                if (body.type === 'KICK') {
+                    if (body.senderId === myUniqueId) {
+                        alert("⛔ " + body.content);
+                        exitRoom();
+                    }
+                    return;
+                }
+
+                if (body.type === 'GAME_OVER') {
+                    isGameEnded = true;
+                    showRanking(body.rankings);
+                    return;
+                }
+                if (isGameEnded) return;
+
+                if (body.type === 'START') {
+                    handleGameStart(body);
+                }
+                else if (body.type === 'SELECT_WORD') {
+                    handleSelectWord(body);
+                }
+                else {
+                    showChat(body.sender, body.content);
+                }
+            });
+        });
+    }
+    function startGame() {
+        stompClient.send(`/app/${currentRoomId}/start`, {}, JSON.stringify({ sender: myNickname, senderId: myUniqueId }));
+    }
+
+    function resetGameState() {
+        isMyTurn = false; isDrawing = false;
+        document.getElementById('chatInput').disabled = false;
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('canvas-container').classList.remove('my-turn');
+        document.getElementById('secret-area').style.display = 'none';
+        document.getElementById('startBtn').style.display = 'none';
+
+    }
+
+    function handleSelectWord(msg) {
+        resetGameState();
+
+        if(msg.currentRound && msg.maxRounds) {
+            document.getElementById('game-status').innerText = `Round ${msg.currentRound}/${msg.maxRounds}`;
+        }
+
+        if (msg.drawerId === myUniqueId) {
+            document.getElementById('word-select-area').style.display = 'block';
+            const btnArea = document.getElementById('candidate-buttons');
+            btnArea.innerHTML = '';
+            msg.candidates.forEach(word => {
+                const btn = document.createElement('button');
+                btn.className = 'word-btn'; btn.innerText = word;
+                btn.onclick = () => selectWord(word);
+                btnArea.appendChild(btn);
+            });
+            showChat("SYSTEM", "👉 주제어를 선택하거나 직접 입력해주세요!");
+        } else {
+            showChat("SYSTEM", "🤔 다음 출제자가 단어를 고르고 있습니다...");
+        }
+    }
+
+    function selectWord(word) {
+        stompClient.send(`/app/${currentRoomId}/choose`, {}, JSON.stringify({ senderId: myUniqueId, content: word }));
+        document.getElementById('word-select-area').style.display = 'none';
+    }
+
+    function sendManualWord() {
+        const word = document.getElementById('manualWordInput').value.trim();
+        if(!word) return alert("단어 입력!");
+        stompClient.send(`/app/${currentRoomId}/input`, {}, JSON.stringify({ senderId: myUniqueId, content: word }));
+        document.getElementById('word-select-area').style.display = 'none';
+    }
+
+    function handleGameStart(msg) {
+        document.getElementById('word-select-area').style.display = 'none';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        showChat('SYSTEM', msg.content);
+
+        const statusSpan = document.getElementById('game-status');
+        if (msg.drawerId === myUniqueId) {
+            isMyTurn = true;
+            statusSpan.innerText = "그리는 중";
+            statusSpan.style.background = "var(--btn-green)"; statusSpan.style.color = "white";
+            document.getElementById('secret-area').style.display = 'inline-block';
+            document.getElementById('secret-text').innerText = msg.answer;
+            document.getElementById('canvas-container').classList.add('my-turn');
+            document.getElementById('chatInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+        } else {
+            isMyTurn = false;
+            statusSpan.innerText = `출제자: ${msg.drawer}`;
+            statusSpan.style.background = "var(--btn-gray)"; statusSpan.style.color = "var(--text-primary)";
+        }
+    }
+
+    function showRanking(rankings) {
+        const modal = document.getElementById('ranking-modal');
+        modal.classList.remove('hidden'); modal.style.display = 'flex';
+        const list = document.getElementById('ranking-list');
+        list.innerHTML = '';
+        rankings.forEach((p, i) => {
+            const li = document.createElement('li');
+            li.style.cssText = "padding:10px; border-bottom:1px solid #eee; font-size:16px;";
+            li.innerHTML = `<b>${i+1}위</b> ${p.nickname} <span style="float:right; color:var(--btn-green); font-weight:bold;">${p.point}점</span>`;
+            list.appendChild(li);
+        });
+        document.getElementById('startBtn').style.display = 'inline-block';
+        document.getElementById('game-status').innerText = "게임 종료";
+    }
+
+    function closeRanking() {
+        document.getElementById('ranking-modal').classList.add('hidden');
+        document.getElementById('ranking-modal').style.display = 'none';
+        exitRoom();
+    }
+
+    function drawLine(x1, y1, x2, y2, color, emit) {
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke(); ctx.closePath();
+        if (emit) stompClient.send(`/app/${currentRoomId}/draw`, {}, JSON.stringify({ type: 'DRAW', sender: myNickname, senderId: myUniqueId, prevX: x1, prevY: y1, x: x2, y: y2, color: color }));
+    }
+    canvas.addEventListener('mousedown', e => { if(isMyTurn){ isDrawing=true; lastX=e.offsetX; lastY=e.offsetY; } });
+    canvas.addEventListener('mousemove', e => { if(isDrawing && isMyTurn){ drawLine(lastX, lastY, e.offsetX, e.offsetY, document.getElementById('colorPicker').value, true); lastX=e.offsetX; lastY=e.offsetY; } });
+    canvas.addEventListener('mouseup', () => isDrawing=false);
+    canvas.addEventListener('mouseout', () => isDrawing=false);
+
+    function clearCanvas() {
+        if(!isMyTurn) return alert("출제자만 가능!");
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        stompClient.send(`/app/${currentRoomId}/draw`, {}, JSON.stringify({ type: 'CLEAR', sender: myNickname, senderId: myUniqueId }));
+    }
+
+    function sendChat() {
+        const val = document.getElementById('chatInput').value.trim();
+        if(!val) return;
+        stompClient.send(`/app/${currentRoomId}/chat`, {}, JSON.stringify({ type: 'CHAT', sender: myNickname, senderId: myUniqueId, content: val }));
+        document.getElementById('chatInput').value = '';
+    }
+    function showChat(sender, msg) {
+        const div = document.createElement('div');
+        div.className = sender === 'SYSTEM' ? 'msg-system' : 'msg-item';
+        div.innerHTML = sender === 'SYSTEM' ? msg : `<span class="msg-sender">${sender}</span>: ${msg}`;
+        document.getElementById('messages').appendChild(div);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    }
+    function exitRoom() {
+        if(stompClient) stompClient.disconnect();
+        location.reload();
+    }
+</script>
+</body>
+</html>

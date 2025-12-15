@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>단어 관리 - 캐치마인드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- GitHub Style CSS (Shared with index.html) --- */
+        :root {
+            --bg-color: #f6f8fa;
+            --box-bg: #ffffff;
+            --border-color: #d0d7de;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --btn-green: #2da44e;
+            --btn-green-hover: #2c974b;
+            --link-blue: #0969da;
+            --input-bg: #ffffff;
+            --header-text: #24292f;
+        }
+
+        body.dark-mode {
+            --bg-color: #0d1117;
+            --box-bg: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --btn-green: #238636;
+            --btn-green-hover: #2ea043;
+            --link-blue: #58a6ff;
+            --input-bg: #0d1117;
+            --header-text: #c9d1d9;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 40px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container { max-width: 600px; margin: 0 auto; }
+
+        /* 헤더 영역 (타이틀 + 다크모드 버튼) */
+        .page-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+        h2 { margin: 0; font-size: 24px; color: var(--header-text); font-weight: 600; }
+
+        .theme-toggle {
+            background: none; border: 1px solid var(--border-color); color: var(--text-primary);
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+        }
+        .theme-toggle:hover { background-color: var(--border-color); }
+
+        /* 박스 스타일 */
+        .box { background: var(--box-bg); border: 1px solid var(--border-color); border-radius: 6px; }
+        .box-header {
+            background: var(--bg-color); padding: 16px; border-bottom: 1px solid var(--border-color);
+            font-weight: 600; border-top-left-radius: 6px; border-top-right-radius: 6px;
+            color: var(--text-primary);
+        }
+        .box-body { padding: 16px; }
+
+        /* 입력창 & 버튼 */
+        input {
+            width: 100%; padding: 5px 12px;
+            background-color: var(--input-bg); color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 6px;
+            height: 32px; box-sizing: border-box; margin-right: 8px;
+        }
+        input:focus {
+            border-color: var(--link-blue); outline: none;
+            box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.3);
+        }
+
+        button.add-btn {
+            padding: 5px 16px; border: 1px solid rgba(27,31,35,0.15); border-radius: 6px;
+            font-weight: 600; cursor: pointer; background: var(--btn-green); color: white; height: 32px;
+            white-space: nowrap;
+        }
+        button.add-btn:hover { background: var(--btn-green-hover); }
+
+        /* 리스트 스타일 */
+        .word-list { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+        .word-item {
+            padding: 10px 16px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; color: var(--text-primary);
+        }
+        .word-item:last-child { border-bottom: none; }
+
+        /* 링크 */
+        .back-link { display: block; margin-top: 20px; color: var(--link-blue); text-decoration: none; font-size: 14px; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="page-header">
+        <h2>단어 데이터베이스 관리</h2>
+        <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌑 Dark Mode</button>
+    </div>
+
+    <div class="box">
+        <div class="box-header">새 단어 추가</div>
+        <div class="box-body" style="display:flex;">
+            <input type="text" id="wordInput" placeholder="단어를 입력하세요 (예: 아이언맨)" onkeypress="if(event.key==='Enter') addWord()">
+            <button class="add-btn" onclick="addWord()">추가</button>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px;" class="box">
+        <div class="box-header">
+            등록된 단어 목록
+            <span id="total-count" style="background: rgba(175, 184, 193, 0.2); padding: 2px 8px; border-radius: 2em; font-size: 12px; margin-left: 5px; color: var(--text-primary);">0</span>
+        </div>
+        <ul id="word-list" class="word-list"></ul>
+    </div>
+
+    <a href="/" class="back-link">← 게임으로 돌아가기</a>
+</div>
+
+<script>
+    // --- 테마 설정 (index.html과 동일 로직) ---
+    function toggleTheme() {
+        const body = document.body;
+        body.classList.toggle('dark-mode');
+        const isDark = body.classList.contains('dark-mode');
+        document.getElementById('themeBtn').innerText = isDark ? "☀️ Light Mode" : "🌑 Dark Mode";
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    // 페이지 로드 시 초기화
+    window.onload = function() {
+        // 1. 테마 적용
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('themeBtn').innerText = "☀️ Light Mode";
+        }
+        // 2. 단어 목록 로드
+        loadWords();
+    };
+
+    // --- 단어 관리 로직 ---
+    function loadWords() {
+        fetch('/api/words').then(res => res.json()).then(words => {
+            document.getElementById('word-list').innerHTML = words.reverse().map(w => `<li class="word-item"><span>${w.word}</span></li>`).join('');
+            document.getElementById('total-count').innerText = words.length;
+        });
+    }
+
+    function addWord() {
+        const input = document.getElementById('wordInput');
+        const val = input.value.trim();
+
+        if(!val) return alert("단어를 입력해주세요!");
+
+        fetch('/api/words?text='+encodeURIComponent(val), {method:'POST'})
+            .then(res=>res.text())
+            .then(() => {
+                input.value='';
+                loadWords();
+                input.focus(); // 편의상 포커스 유지
+            })
+            .catch(err => alert("추가 실패: " + err));
+    }
+</script>
+</body>
+</html>
