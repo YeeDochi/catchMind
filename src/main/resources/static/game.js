@@ -183,12 +183,38 @@ function handleGameStart(msg) {
 function showRanking(rankings) {
     const modal = document.getElementById('ranking-modal');
     modal.classList.remove('hidden');
+
+    // [추가된 부분] 🎉 빵파레(폭죽) 효과 발사!
+    // 모달(z-index:999)보다 위에 보이도록 zIndex를 높게 설정합니다.
+    var duration = 3 * 1000; // 3초 동안
+    var animationEnd = Date.now() + duration;
+    var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+    function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    var interval = setInterval(function() {
+        var timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+            return clearInterval(interval);
+        }
+
+        var particleCount = 50 * (timeLeft / duration);
+        // 양쪽에서 팡팡 터지게 설정
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+    }, 250);
+
+    // [기존 코드] 랭킹 리스트 그리기
     const list = document.getElementById('ranking-list');
     list.innerHTML = '';
     rankings.forEach((p, i) => {
         const li = document.createElement('li');
         li.style.cssText = "padding:10px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between;";
-        li.innerHTML = `<span><b>#${i+1}</b> ${p.nickname}</span> <span style="color:var(--btn-primary-bg); font-weight:bold;">${p.point} pts</span>`;
+        const rankIcon = i === 0 ? '👑 ' : `<b>#${i+1}</b> `;
+        li.innerHTML = `<span>${rankIcon}${p.nickname}</span> <span style="color:var(--btn-primary-bg); font-weight:bold;">${p.point} pts</span>`;
         list.appendChild(li);
     });
 }
