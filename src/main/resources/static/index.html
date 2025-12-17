@@ -41,7 +41,17 @@
     </div>
     <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">Dark</button>
 </header>
-
+<div id="alert-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; justify-content:center; align-items:center; z-index:2000;">
+    <div class="box" style="width:320px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <div class="box-header">알림</div>
+        <div style="padding: 20px; text-align: center; color: var(--text-primary);">
+            <p id="alert-msg-text" style="margin: 0; word-break: keep-all;">메시지 내용</p>
+        </div>
+        <div style="padding:16px; border-top: 1px solid var(--border-color);">
+            <button class="btn-primary" onclick="closeAlert()" style="width: 100%;">확인</button>
+        </div>
+    </div>
+</div>
 <div id="login-screen" class="container" style="max-width: 400px; margin-top: 50px;">
     <div class="box">
         <div class="box-header">게임 입장</div>
@@ -133,7 +143,7 @@
             <div style="padding: 10px; border-top: 1px solid var(--border-color);">
                 <div style="display:flex; gap:5px;">
                     <input type="text" id="chatInput" placeholder="정답을 입력하세요..." onkeypress="if(event.key==='Enter') sendChat()">
-                    <button class="btn-primary" onclick="sendChat()">전송</button>
+                    <button class="btn-primary" onclick="sendChat()" style="flex-shrink: 0;">전송</button>
                 </div>
             </div>
         </div>

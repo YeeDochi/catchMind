@@ -33,7 +33,7 @@ let lastX = 0, lastY = 0;
 
 function goToLobby() {
     const input = document.getElementById('nicknameInput').value;
-    if (!input.trim()) return alert("닉네임을 입력하세요!");
+    if (!input.trim()) return showAlert("닉네임을 입력하세요!");
     myNickname = input;
     document.getElementById('welcome-msg').innerText = `플레이어: ${myNickname}`;
     document.getElementById('login-screen').classList.add('hidden');
@@ -63,7 +63,7 @@ function loadRooms() {
 function createRoom() {
     const name = document.getElementById('roomNameInput').value;
     const rounds = document.getElementById('roundsInput').value;
-    if(!name) return alert("방 제목을 입력하세요!");
+    if(!name) return showAlert("방 제목을 입력하세요!");
     fetch(`/catchmind/api/rooms?name=${encodeURIComponent(name)}&rounds=${rounds}`, { method: 'POST' })
         .then(res => res.json())
         .then(room => joinRoom(room.roomId, room.roomName));
@@ -76,10 +76,10 @@ function joinRoom(roomId, roomName) {
             return res.json();
         })
         .then(room => {
-            if (room.playing) return alert("이미 게임이 진행 중입니다!");
+            if (room.playing) return showAlert("이미 게임이 진행 중입니다!");
             enterRoomProcess(roomId, roomName);
         })
-        .catch(err => { alert(err.message); loadRooms(); });
+        .catch(err => { showAlert(err.message); loadRooms(); });
 }
 
 function enterRoomProcess(roomId, roomName) {
@@ -108,7 +108,7 @@ function enterRoomProcess(roomId, roomName) {
 
         stompClient.subscribe(`/topic/${roomId}/chat`, function (msg) {
             const body = JSON.parse(msg.body);
-            if (body.type === 'KICK') { if (body.senderId === myUniqueId) { alert(body.content); exitRoom(); } return; }
+            if (body.type === 'KICK') { if (body.senderId === myUniqueId) { showAlert(body.content); exitRoom(); } return; }
             if (body.type === 'GAME_OVER') { isGameEnded = true; showRanking(body.rankings); return; }
             if (isGameEnded) return;
 
@@ -254,3 +254,19 @@ function showChat(sender, msg) {
 }
 
 function exitRoom() { if(stompClient) stompClient.disconnect(); location.reload(); }
+
+function showAlert(msg) {
+    const modal = document.getElementById('alert-modal');
+    const text = document.getElementById('alert-msg-text');
+    if (modal && text) {
+        text.innerText = msg;
+        modal.classList.remove('hidden'); // hidden 클래스 제거하여 표시
+    } else {
+        alert(msg); // 방어 코드
+    }
+}
+
+function closeAlert() {
+    const modal = document.getElementById('alert-modal');
+    if (modal) modal.classList.add('hidden'); // hidden 클래스 추가하여 숨김
+}
