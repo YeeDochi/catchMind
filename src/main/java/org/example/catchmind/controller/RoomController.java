@@ -13,6 +13,10 @@ public class RoomController {
 
     private final RoomService roomService;
 
+    @RequestMapping(method = RequestMethod.HEAD)
+    public void healthCheck() {
+    }
+
     // 방 목록 조회
     @GetMapping
     public List<GameRoom> findAllRooms() {
