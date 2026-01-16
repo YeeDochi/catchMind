@@ -20,7 +20,10 @@ public class GameService {
 
     public void join(String roomId, GameMessage message){
         GameRoom room = roomService.findRoom(roomId);
-
+        if (room.isPlaying()) {
+            System.out.println("❌ 입장 거부: 이미 게임 진행 중인 방 (" + roomId + ")");
+            return;
+        }
         if (room != null) {
             // [수정] 게임 중이면 강퇴 메시지 전송
             if (room.isPlaying()) {
